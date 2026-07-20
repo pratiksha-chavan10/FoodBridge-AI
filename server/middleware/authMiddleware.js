@@ -18,6 +18,14 @@ const authMiddleware = (req, res, next) => {
         }
 
         // 2. Remove "Bearer "
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                success: false,
+                message: "No token, access denied"
+            });
+        }
         const actualToken = token.split(" ")[1];
 
         // 3. Verify token

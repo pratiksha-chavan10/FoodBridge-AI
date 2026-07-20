@@ -84,11 +84,17 @@ const loginUser = async (req, res) => {
                 process.env.JWT_SECRET,
             { expiresIn: "7d" }
         );
-        // 4. Sens Respond
-        return res.status(200).json({
+        // 4. Send Respond
+       return res.status(200).json({
             success: true,
             message: "Login successful",
-            token
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
         });
 
     } catch (error) {
@@ -100,15 +106,16 @@ const loginUser = async (req, res) => {
     }
 };
 
-const createDonation = async (req, res) => {
+// const createDonation = async (req, res) => {
 
-    console.log(req.user);
+//     console.log(req.user);
 
-    res.json({
-        message: "Donation created"
-    });
+//     res.json({
+//         message: "Donation created"
+//     });
 
-}
+// }
+
 
 module.exports = {
     registerUser,

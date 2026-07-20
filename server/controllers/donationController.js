@@ -84,7 +84,11 @@ const getMyDonations = async (req, res) => {
 
 const getDonationsById=async (req,res)=>{
     try{
-        const donation=await Donation.findById(req.params.id);
+        const donation = await Donation.findById(req.params.id)
+            .populate("donor", "name email phone")
+            .populate("claimedBy", "name")
+            .populate("assignedVolunteer", "name phone");
+
         if (!donation) {
             return res.status(404).json({
                 success: false,
@@ -205,75 +209,35 @@ const deleteDonation=async (req,res)=>{
 };
 
 const getAllDonations = async (req, res) => {
+
     try {
 
-        const { search, category, city, page, limit } = req.query;
+        const donations = await Donation.find()
 
-        // Always show only available donations
-        const filter = {
-            status: "Available"
-        };
+            .populate("donor", "name")
 
-        // Optional category filter
-        if (category) {
-            filter.category = category;
-        }
-        if (search) {
-            filter.$or = [
-                {
-                    foodName: {
-                        $regex: search,
-                        $options: "i"
-                    }
-                },
-                {
-                    description: {
-                        $regex: search,
-                        $options: "i"
-                    }
-                }
-            ];
-        }
-        if (city) {
-            filter["pickupAddress.city"] = {
-                $regex: city,
-                $options: "i"
-            };
-        }
-        // Pagination
-        const currentPage = Number(page) || 1;
-        const pageSize = Number(limit) || 10;
+            .populate("claimedBy", "name")
 
-        const skip = (currentPage - 1) * pageSize;
+            .populate("assignedVolunteer", "name")
 
-        // Count filtered donations
-        const total = await Donation.countDocuments(filter);
-
-        // Fetch donations
-        const donations = await Donation.find(filter)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(pageSize)
-            .populate("donor", "name email phone");
+            .sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,
-            message: "Donations fetched successfully",
-            total,
-            page: currentPage,
-            limit: pageSize,
-            count: donations.length,
             data: donations
         });
 
     } catch (error) {
+
         console.error(error);
 
         return res.status(500).json({
             success: false,
             message: "Internal Server Error"
         });
+
     }
+
 };
 
 const claimDonation=async (req,res)=>{
@@ -341,10 +305,11 @@ const myClaimedDonations= async (req,res)=>{
             })
     };
 
-    const donations=await Donation.find({
-        claimedBy:req.user.id
-    });
-    
+    const donations = await Donation.find({
+        claimedBy: req.user.id
+    })
+    .populate("assignedVolunteer", "name email phone");
+        
     if(donations.length===0){
         return res.status(400).json({
             success:false,
@@ -514,7 +479,7 @@ const assignedVolunteer=async (req,res)=>{
                 message: "This user is not a volunteer"
             });
         }
-        if (vol.ngo.toString() !== req.user.id) {
+        if (!vol.ngo || vol.ngo.toString() !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: "This volunteer does not belong to your NGO"
@@ -545,6 +510,37 @@ const assignedVolunteer=async (req,res)=>{
              });   
     }
  };
+
+    const myAssignedDonations = async (req, res) => {
+        try {
+            if (req.user.role !== "volunteer") {
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not a volunteer"
+                });
+            }
+            const donations = await Donation.find({
+                assignedVolunteer: req.user.id
+            })
+            .populate("donor", "name phone")
+            .populate("claimedBy", "name");
+
+            return res.status(200).json({
+                success: true,
+                data: donations
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            return res.status(500).json({
+                success:false,
+                message:"Internal Server Error"
+            });
+
+        }
+    };
 
 const filterDonations=async (req,res)=>{
     try{
@@ -610,6 +606,69 @@ const pagination = async (req,res)=>{
     }
 }
 
+const getAllDonationsForAdmin = async (req, res) => {
+
+    try {
+
+        const donations = await Donation.find()
+            .sort({ createdAt: -1 })
+            .populate("donor", "name email")
+            .populate("claimedBy", "name")
+            .populate("assignedVolunteer", "name");
+
+        return res.status(200).json({
+
+            success: true,
+            data: donations
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
+            success: false,
+            message: "Internal Server Error"
+
+        });
+
+    }
+
+};
+
+const deleteDonationByAdmin = async (req, res) => {
+    try {
+
+        const donation = await Donation.findById(req.params.id);
+
+        if (!donation) {
+            return res.status(404).json({
+                success: false,
+                message: "Donation not found"
+            });
+        }
+
+        await donation.deleteOne();
+
+        return res.status(200).json({
+            success: true,
+            message: "Donation deleted successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error"
+        });
+
+    }
+};
+
 
 
 module.exports = {
@@ -624,5 +683,8 @@ module.exports = {
     pickUpDonation,
     completeDonation,
     assignedVolunteer,
-    filterDonations
+    filterDonations,
+    myAssignedDonations,
+    getAllDonationsForAdmin,
+    deleteDonationByAdmin
 };

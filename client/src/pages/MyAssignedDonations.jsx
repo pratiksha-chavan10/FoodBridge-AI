@@ -1,0 +1,1 @@
+const response = await api.get("/donation/assigned/my");
